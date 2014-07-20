@@ -1108,7 +1108,7 @@ bool venc_dev::venc_get_buf_req(unsigned long *min_buff_count,
 #endif
         *buff_size = m_sInput_buff_property.datasize;
     } else {
-        int extra_idx = 0;
+        unsigned int extra_idx = 0;
         fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
         fmt.fmt.pix_mp.height = m_sVenc_cfg.dvs_height;
         fmt.fmt.pix_mp.width = m_sVenc_cfg.dvs_width;
@@ -1329,8 +1329,7 @@ bool venc_dev::venc_set_param(void *paramData, OMX_INDEXTYPE index)
                     } else {
                         if (pParam->eProfile == OMX_VIDEO_MPEG4ProfileAdvancedSimple) {
                             if (pParam->nBFrames) {
-                                DEBUG_PRINT_HIGH("INFO: Only 1 Bframe is supported");
-                                bFrames = 1;
+                                bFrames = pParam->nBFrames;
                             }
                         } else {
                             if (pParam->nBFrames) {
@@ -1404,8 +1403,7 @@ bool venc_dev::venc_set_param(void *paramData, OMX_INDEXTYPE index)
                         if ((pParam->eProfile != OMX_VIDEO_AVCProfileBaseline) &&
                             (pParam->eProfile != QOMX_VIDEO_AVCProfileConstrainedBaseline)) {
                             if (pParam->nBFrames) {
-                                DEBUG_PRINT_HIGH("INFO: Only 1 Bframe is supported");
-                                bFrames = 1;
+                                bFrames = pParam->nBFrames;
                             }
                         } else {
                             if (pParam->nBFrames) {
@@ -2160,7 +2158,8 @@ bool venc_dev::venc_use_buf(void *buf_addr, unsigned port,unsigned index)
     struct pmem *pmem_tmp;
     struct v4l2_buffer buf;
     struct v4l2_plane plane[VIDEO_MAX_PLANES];
-    int rc = 0, extra_idx;
+    int rc = 0;
+    unsigned int extra_idx;
 
     pmem_tmp = (struct pmem *)buf_addr;
     DEBUG_PRINT_LOW("venc_use_buf:: pmem_tmp = %p", pmem_tmp);
@@ -2469,7 +2468,8 @@ bool venc_dev::venc_fill_buf(void *buffer, void *pmem_data_buf,unsigned index,un
     struct venc_buffer  frameinfo;
     struct v4l2_buffer buf;
     struct v4l2_plane plane[VIDEO_MAX_PLANES];
-    int rc = 0, extra_idx;
+    int rc = 0;
+    unsigned int extra_idx;
     struct OMX_BUFFERHEADERTYPE *bufhdr;
 
     if (buffer == NULL)
@@ -3077,10 +3077,10 @@ bool venc_dev::venc_set_voptiming_cfg( OMX_U32 TimeIncRes)
 bool venc_dev::venc_set_intra_period(OMX_U32 nPFrames, OMX_U32 nBFrames)
 {
 
-    DEBUG_PRINT_LOW("venc_set_intra_period: nPFrames = %lu",
-            nPFrames);
+    DEBUG_PRINT_LOW("venc_set_intra_period: nPFrames = %u, nBFrames: %lu", nPFrames, nBFrames);
     int rc;
     struct v4l2_control control;
+    int pframe = 0, bframe = 0;
 
     if ((codec_profile.profile != V4L2_MPEG_VIDEO_MPEG4_PROFILE_ADVANCED_SIMPLE) &&
             (codec_profile.profile != V4L2_MPEG_VIDEO_H264_PROFILE_MAIN) &&
@@ -3089,8 +3089,11 @@ bool venc_dev::venc_set_intra_period(OMX_U32 nPFrames, OMX_U32 nBFrames)
     }
 
     control.id = V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES;
-    control.value = nPFrames;
-
+    if (!nBFrames) {
+        control.value = nPFrames;
+    } else {
+        control.value = (m_sVenc_cfg.fps_num /m_sVenc_cfg.fps_den) - (nBFrames+1);
+    }
     rc = ioctl(m_nDriver_fd, VIDIOC_S_CTRL, &control);
 
     if (rc) {
@@ -3111,10 +3114,8 @@ bool venc_dev::venc_set_intra_period(OMX_U32 nPFrames, OMX_U32 nBFrames)
         return false;
     }
 
-    DEBUG_PRINT_LOW("Success IOCTL set control for id=%d, value=%d", control.id, control.value);
-
-
-    intra_period.num_bframes = control.value;
+    intra_period.num_bframes = nBFrames;
+    DEBUG_PRINT_LOW("Success IOCTL set control for id=%d, value=%d", control.id, intra_period.num_bframes);
 
     if (m_sVenc_cfg.codectype == V4L2_PIX_FMT_H264) {
         control.id = V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD;
@@ -3150,7 +3151,8 @@ bool venc_dev::venc_set_idr_period(OMX_U32 nPFrames, OMX_U32 nIDRPeriod)
         return false;
     }
 
-    intra_period.num_pframes = nPFrames;
+    if (!intra_period.num_bframes)
+        intra_period.num_pframes = nPFrames;
     control.id = V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD;
     control.value = nIDRPeriod;
 
