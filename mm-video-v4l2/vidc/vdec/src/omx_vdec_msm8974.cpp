@@ -2740,8 +2740,8 @@ OMX_ERRORTYPE  omx_vdec::get_parameter(OMX_IN OMX_HANDLETYPE     hComp,
                                     // usage hinted via "OMX.google.android.index.useAndroidNativeBuffer2"
                                     // For non-android, use the default list
                                     bool useNonSurfaceMode = false;
-#if _ANDROID_
-                                    useNonSurfaceMode = (m_enable_android_native_buffers == OMX_FALSE);
+#if defined (_ANDROID_HONEYCOMB_) || defined (_ANDROID_ICS_)
+                                    useNonSurfaceMode = (m_enable_android_native_buffers == OMX_TRUE);
 #endif
                                     portFmt->eColorFormat = useNonSurfaceMode ?
                                         getPreferredColorFormatNonSurfaceMode(portFmt->nIndex) :
@@ -2749,7 +2749,7 @@ OMX_ERRORTYPE  omx_vdec::get_parameter(OMX_IN OMX_HANDLETYPE     hComp,
 
                                     if (portFmt->eColorFormat == OMX_COLOR_FormatMax ) {
                                         eRet = OMX_ErrorNoMore;
-                                        DEBUG_PRINT_LOW("get_parameter: OMX_IndexParamVideoPortFormat:"\
+                                        DEBUG_PRINT_ERROR("get_parameter: OMX_IndexParamVideoPortFormat:"\
                                                 " NoMore Color formats");
                                         eRet =  OMX_ErrorNoMore;
                                     }
