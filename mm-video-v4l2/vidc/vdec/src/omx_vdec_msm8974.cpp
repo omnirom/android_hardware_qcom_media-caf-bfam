@@ -2822,7 +2822,13 @@ OMX_ERRORTYPE  omx_vdec::get_parameter(OMX_IN OMX_HANDLETYPE     hComp,
                                     }
                                 } else if (1 == portFmt->nPortIndex) {
                                     portFmt->eCompressionFormat =  OMX_VIDEO_CodingUnused;
-
+                                    // maxwen TODO
+                                    // this depends that m_enable_android_native_buffers is set before
+                                    // but in OMXCodec OMX_GoogleAndroidIndexEnableAndroidNativeBuffers
+                                    // is called AFTER OMX_IndexParamVideoPortFormat so this cant actually
+                                    // work as expected
+                                    
+                                    /*
                                     // Distinguish non-surface mode from normal playback use-case based on
                                     // usage hinted via "OMX.google.android.index.useAndroidNativeBuffer2"
                                     // For non-android, use the default list
@@ -2836,6 +2842,19 @@ OMX_ERRORTYPE  omx_vdec::get_parameter(OMX_IN OMX_HANDLETYPE     hComp,
 
                                     if (portFmt->eColorFormat == OMX_COLOR_FormatMax ) {
                                         eRet = OMX_ErrorNoMore;
+                                        DEBUG_PRINT_LOW("get_parameter: OMX_IndexParamVideoPortFormat:"\
+                                                " NoMore Color formats");
+                                        eRet =  OMX_ErrorNoMore;
+                                    }*/
+
+                                    // this is the code as it was in 4.4
+                                    // this matches the code in setParameter OMX_IndexParamVideoPortFormat
+                                    if (0 == portFmt->nIndex)
+                                        portFmt->eColorFormat = (OMX_COLOR_FORMATTYPE)
+                                            QOMX_COLOR_FORMATYUV420PackedSemiPlanar32m;
+                                    else if (1 == portFmt->nIndex)
+                                        portFmt->eColorFormat = OMX_COLOR_FormatYUV420Planar;
+                                    else {
                                         DEBUG_PRINT_LOW("get_parameter: OMX_IndexParamVideoPortFormat:"\
                                                 " NoMore Color formats");
                                         eRet =  OMX_ErrorNoMore;
@@ -3610,20 +3629,25 @@ OMX_ERRORTYPE  omx_vdec::set_parameter(OMX_IN OMX_HANDLETYPE     hComp,
                                    * state. This is ANDROID architecture which is not in sync
                                    * with openmax standard. */
         case OMX_GoogleAndroidIndexEnableAndroidNativeBuffers: {
-                                           EnableAndroidNativeBuffersParams* enableNativeBuffers = (EnableAndroidNativeBuffersParams *) paramData;
-                                           if (enableNativeBuffers) {
+                                            DEBUG_PRINT_LOW("set_parameter: OMX_GoogleAndroidIndexEnableAndroidNativeBuffers");
+                                            EnableAndroidNativeBuffersParams* enableNativeBuffers = (EnableAndroidNativeBuffersParams *) paramData;
+                                            if (enableNativeBuffers) {
                                                m_enable_android_native_buffers = enableNativeBuffers->enable;
                                             }
-                                            if (m_enable_android_native_buffers) {
+                                            // maxwen TODO
+                                            /*if (m_enable_android_native_buffers) {
                                                // Use the most-preferred-native-color-format as surface-mode is hinted here
                                                if(!client_buffers.set_color_format(getPreferredColorFormatDefaultMode(0))) {
                                                    DEBUG_PRINT_ERROR("Failed to set native color format!");
                                                    eRet = OMX_ErrorUnsupportedSetting;
                                                }
-                                           }
+                                           }*/
                                        }
+                                       DEBUG_PRINT_LOW("set_parameter: OMX_GoogleAndroidIndexEnableAndroidNativeBuffers m_enable_android_native_buffers=%d", m_enable_android_native_buffers);
                                        break;
         case OMX_GoogleAndroidIndexUseAndroidNativeBuffer: {
+                                       DEBUG_PRINT_LOW("set_parameter: OMX_GoogleAndroidIndexUseAndroidNativeBuffer");
+
                                        eRet = use_android_native_buffer(hComp, paramData);
                                    }
                                    break;
@@ -4356,7 +4380,8 @@ OMX_ERRORTYPE  omx_vdec::use_output_buffer(
                 DEBUG_PRINT_ERROR("Insufficient sized buffer given for playback,"
                         " expected %u, got %lu",
                         drv_ctx.op_buf.buffer_size, (OMX_U32)handle->size);
-                return OMX_ErrorBadParameter;
+                // maxwen TODO
+                //return OMX_ErrorBadParameter;
             }
 
             drv_ctx.op_buf.buffer_size = handle->size;
